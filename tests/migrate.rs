@@ -1,19 +1,16 @@
 mod common;
 
+// do not alter the content of the migrate! macro
 #[test_log::test]
-fn raw_single() {
+fn migrate() {
     let content = r###"
-    sqlx::query!(
-        r#"alter table    test add column log text"#,
-    )
+        sqlx::migrate!("./migrations")
     "###;
 
     let formatted = sqlx_fmt::format(content, ".sqruff", 4, &None).unwrap();
 
     let expected = r###"
-    sqlx::query!(
-        r#"alter table test add column log text"#,
-    )
+        sqlx::migrate!("./migrations")
     "###;
 
     common::compare(expected, &formatted);

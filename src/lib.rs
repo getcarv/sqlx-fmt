@@ -4,9 +4,7 @@ pub mod tree_sitter;
 
 use anyhow::{Result, bail};
 
-const DEFAULT_MACROS: [&str; 14] = [
-    "migrate",
-    "sqlx::migrate",
+const DEFAULT_MACROS: [&str; 12] = [
     "query",
     "sqlx::query",
     "query_unchecked",

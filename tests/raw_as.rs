@@ -18,10 +18,10 @@ fn raw_as() {
     sqlx::query_as!(
         Test,
         r#"
-            select *
-            from
-                test
-            where id = $1
+        select *
+        from
+            test
+        where id = $1
         "#,
         id
     )

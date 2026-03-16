@@ -17,11 +17,11 @@ fn raw() {
     let expected = r###"
     sqlx::query!(
         r#"
-            select *
+        select *
 
-            from
-                test
-            where id = $1
+        from
+            test
+        where id = $1
         "#,
         id
     )

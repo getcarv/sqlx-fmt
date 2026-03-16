@@ -16,10 +16,10 @@ fn raw_indented_literal() {
     let expected = r###"
     sqlx::query!(
             r#"
-                select *
-                from
-                    test
-                where id = $1
+            select *
+            from
+                test
+            where id = $1
             "#,
         id
     )

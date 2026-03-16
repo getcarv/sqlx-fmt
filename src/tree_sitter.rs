@@ -161,7 +161,7 @@ fn format_raw_string_literal<'a>(
                 .map(|line| format!(
                     "{}{}",
                     if !line.trim().is_empty() {
-                        " ".repeat(col.saturating_add(4))
+                        " ".repeat(col)
                     } else {
                         "".to_string()
                     },
@@ -190,7 +190,7 @@ fn format_raw_string_literal<'a>(
                 .map(|line| format!(
                     "{}{}",
                     if !line.trim().is_empty() {
-                        " ".repeat(col.saturating_add(4))
+                        " ".repeat(col)
                     } else {
                         "".to_string()
                     },
@@ -235,14 +235,53 @@ fn format_string_literal<'a>(
         "string literal => col: {col}, literal_lines: {literal_text_lines_count}, replacement_lines_count: {replacement_line_count}"
     );
 
-    let new_literal = format!(
-        "\"{replacement}\"",
-        replacement = replacement
-            .lines()
-            .map(|l| l.trim())
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
+    let new_literal = if replacement_line_count <= 1 {
+        // Single-line result: keep compact
+        debug!("STRING_SINGLE detected");
+        format!("\"{}\"", replacement.trim())
+    } else if literal_text_lines_count <= 1 {
+        // Original was single-line but formatted to multi-line
+        debug!("STRING_SINGLE_TO_MANY detected");
+        format!(
+            "\"\n{replacement}\n{closing}\"",
+            replacement = replacement
+                .lines()
+                .map(|line| format!(
+                    "{}{}",
+                    if !line.trim().is_empty() {
+                        " ".repeat(col)
+                    } else {
+                        "".to_string()
+                    },
+                    line
+                ))
+                .collect::<Vec<String>>()
+                .join("\n")
+                .trim_end(),
+            closing = " ".repeat(col),
+        )
+    } else {
+        // Multi-line to multi-line: preserve multi-line structure
+        debug!("STRING_MANY detected");
+        format!(
+            "\"\n{replacement}\n{closing}\"",
+            replacement = replacement
+                .lines()
+                .map(|line| format!(
+                    "{}{}",
+                    if !line.trim().is_empty() {
+                        " ".repeat(col)
+                    } else {
+                        "".to_string()
+                    },
+                    line
+                ))
+                .collect::<Vec<String>>()
+                .join("\n")
+                .trim_end(),
+            closing = " ".repeat(col),
+        )
+    };
 
     Ok(new_literal)
 }

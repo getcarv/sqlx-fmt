@@ -69,44 +69,24 @@ fn find_and_collect<'a, F>(
             let macro_name = macro_node
                 .utf8_text(source)
                 .expect("failed to get macro name as utf8");
-            if macro_names.contains(&macro_name.to_string()) {
-                let mut cursor = child.walk();
-                for macro_child in child.children(&mut cursor) {
-                    // raw string literal
-
-                    let cursor = &mut macro_child.walk();
-                    if let Some(raw_string_literal) = macro_child
-                        .children(cursor)
-                        .find(|n| n.kind() == "raw_string_literal")
-                    {
-                        match format_raw_string_literal(source, &raw_string_literal, formatter) {
-                            Ok(v) => replacements.push((raw_string_literal.range(), v)),
-                            Err(e) => {
-                                error!(
-                                    "failed to format raw string literal: {:?}, error: {:?}",
-                                    raw_string_literal.utf8_text(source),
-                                    e
-                                );
-                            }
-                        }
+            if macro_names.contains(&macro_name.to_string())
+                && let Some(sql_literal) = find_first_sql_literal(child)
+            {
+                let result = match sql_literal.kind() {
+                    "raw_string_literal" => {
+                        format_raw_string_literal(source, &sql_literal, formatter)
                     }
-
-                    // string literal
-
-                    if let Some(string_literal) = macro_child
-                        .children(cursor)
-                        .find(|n| n.kind() == "string_literal")
-                    {
-                        match format_string_literal(source, &string_literal, formatter) {
-                            Ok(v) => replacements.push((string_literal.range(), v)),
-                            Err(e) => {
-                                error!(
-                                    "failed to format string literal: {:?}, error: {:?}",
-                                    string_literal.utf8_text(source),
-                                    e
-                                );
-                            }
-                        }
+                    "string_literal" => format_string_literal(source, &sql_literal, formatter),
+                    other => unreachable!("unexpected SQL literal kind: {other}"),
+                };
+                match result {
+                    Ok(v) => replacements.push((sql_literal.range(), v)),
+                    Err(e) => {
+                        error!(
+                            "failed to format SQL literal: {:?}, error: {:?}",
+                            sql_literal.utf8_text(source),
+                            e
+                        );
                     }
                 }
             }
@@ -120,6 +100,31 @@ fn find_and_collect<'a, F>(
             replacements,
         );
     }
+}
+
+/// Find the SQL literal argument in a sqlx query macro invocation.
+///
+/// In every sqlx query macro the SQL is the first string-shaped positional
+/// argument: either the first arg (`query!("SELECT...")`) or the second
+/// (`query_as!(MyType, "SELECT...")`). It can be raw (`r#"..."#`) or regular
+/// (`"..."`). Subsequent string literals are bound parameters and must not be
+/// reformatted by the SQL formatter — doing so corrupts values like
+/// `"user@example.com"` into `"user @ example.com"` because `@` is a Postgres
+/// operator.
+///
+/// Returns the first literal of either kind in source order, or `None` when
+/// the macro has no string literal arguments (e.g. `query!(query_string_var)`).
+fn find_first_sql_literal(macro_invocation: Node) -> Option<Node> {
+    let mut cursor = macro_invocation.walk();
+    for macro_child in macro_invocation.children(&mut cursor) {
+        let mut tt_cursor = macro_child.walk();
+        for tt_child in macro_child.children(&mut tt_cursor) {
+            if matches!(tt_child.kind(), "raw_string_literal" | "string_literal") {
+                return Some(tt_child);
+            }
+        }
+    }
+    None
 }
 
 fn format_raw_string_literal<'a>(
